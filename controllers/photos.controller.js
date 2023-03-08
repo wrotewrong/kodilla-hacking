@@ -1,4 +1,5 @@
 const Photo = require('../models/photo.model');
+const Voter = require('../models/voter.model');
 const validate = require('../utils/validate');
 
 /****** SUBMIT PHOTO ********/
@@ -49,14 +50,48 @@ exports.loadAll = async (req, res) => {
 
 /****** VOTE FOR PHOTO ********/
 
+// exports.vote = async (req, res) => {
+//   try {
+//     const photoToUpdate = await Photo.findOne({ _id: req.params.id });
+//     if (!photoToUpdate) res.status(404).json({ message: 'Not found' });
+//     else {
+//       photoToUpdate.votes++;
+//       photoToUpdate.save();
+//       res.send({ message: 'OK' });
+//     }
+//   } catch (err) {
+//     res.status(500).json(err);
+//   }
+// };
+
 exports.vote = async (req, res) => {
   try {
     const photoToUpdate = await Photo.findOne({ _id: req.params.id });
-    if (!photoToUpdate) res.status(404).json({ message: 'Not found' });
-    else {
+    if (!photoToUpdate) {
+      res.status(404).json({ message: 'Not found' });
+    }
+
+    const voter = await Voter.findOne({ user: req.ip });
+
+    if (!voter) {
+      const newVot = new Voter({
+        user: req.ip,
+        votes: [req.params.id],
+      });
+      await newVot.save();
       photoToUpdate.votes++;
-      photoToUpdate.save();
+      await photoToUpdate.save();
       res.send({ message: 'OK' });
+    } else {
+      if (voter.votes.includes(req.params.id)) {
+        res.status(500).json({ message: 'Already voted for this photo' });
+      } else {
+        voter.votes.push(req.params.id);
+        await voter.save();
+        photoToUpdate.votes++;
+        await photoToUpdate.save();
+        res.send({ message: 'OK' });
+      }
     }
   } catch (err) {
     res.status(500).json(err);
